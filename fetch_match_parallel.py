@@ -2,6 +2,7 @@ import sys
 import pandas as pd
 from functools import partial
 
+import tqdm
 import time
 
 import mechanize
@@ -10,13 +11,11 @@ import requests
 
 import multiprocessing as mp
 from multiprocessing import Pool
-from ipynb.fs.full.voobly_scraping_modules import fetch_all_match_details
-from ipynb.fs.full.voobly_scraping_modules import setup_sql_conn
+from ipynb.fs.full.voobly_scraping_modules import fetch_all_match_details,setup_sql_conn,fetch_latest_match_id
 from ipynb.fs.full.credentials import credentials
 
-start_id = int(sys.argv[1])
-collect = int(sys.argv[2])
-procs = int(sys.argv[3])
+collect = int(sys.argv[1])
+procs = int(sys.argv[2])
 
 def fetch_matches(match):
     
@@ -24,8 +23,8 @@ def fetch_matches(match):
     username, password = credentials()
     instance = voobly_login(username,password)
     
-     # Set up SQL connection
-    db_conn,db_cursor,engine = setup_sql_conn()   
+    # Set up SQL connection
+    db_conn,db_cursor,engine = setup_sql_conn()
     
     obj = pd.Series.to_frame(pd.Series([match], dtype='str'))
     obj.columns = ['Match_ID']       
@@ -80,15 +79,24 @@ def voobly_login(username, password):
     
     return(br)        
         
-if __name__ == '__main__':       
+if __name__ == '__main__':
+    
+    # Set up SQL connection
+    db_conn,db_cursor,engine = setup_sql_conn()   
+    
+    # Fetch last match ID downloaded
+    start_id = fetch_latest_match_id(db_conn)+1
+    
+    print('Starting download from match id: '+str(start_id)+'\n')
     
     start = time.time()
     iterations = list(range(start_id,start_id+collect))
     
     # Parallel processing
-    with mp.Pool(processes=procs) as p:
-        p.map(fetch_matches, iterations)
-        
-    print("Time taken to scrap "+str(collect)+" matches: "+str(time.time() - start))
+    p = mp.Pool(processes=procs)
+    for _ in tqdm.tqdm(p.imap_unordered(fetch_matches, iterations),bar_format='{desc:<5.5}{percentage:3.0f}%|{bar:70}{r_bar}', total = collect):
+        pass
+    p.close()
+    p.join()
 
     
