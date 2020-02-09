@@ -18,35 +18,6 @@ from ipynb.fs.full.credentials import credentials
 collect = int(sys.argv[1])
 procs = int(sys.argv[2])
 
-def fetch_matches(match):
-        
-    # Create connection instance
-    username, password = credentials()
-    instance = voobly_login(username,password)
-    
-    # Set up SQL connection
-    db_conn,db_cursor,engine = setup_sql_conn()
-    
-    obj = pd.Series.to_frame(pd.Series([match], dtype='str'))
-    obj.columns = ['Match_ID']       
-
-    try:            
-        data = fetch_all_match_details(match,instance)
-
-        if len(data) == 1 and data == [2]:
-            obj.to_sql('NONEXISTENT_FAILS',con=engine, if_exists="append",index=False)
-
-        elif len(data) == 1 and data == [1]:
-            obj.to_sql('TIMEOUT_FAILS',con=engine, if_exists="append",index=False)
-
-        elif len(data) == 1 and data == [3]:
-            obj.to_sql('NONAOE2MATCH_FAILS',con=engine, if_exists="append",index=False)
-            
-        else:
-            data.to_sql('RAW_MATCH_DATA',con=engine, if_exists="append",index=False)
-    except:
-        obj.to_sql('UNKNOWN_FAILS',con=engine, if_exists="append",index=False)
-        
 def voobly_login(username, password):
     # Browser
     br = mechanize.Browser()
@@ -78,9 +49,35 @@ def voobly_login(username, password):
     # Login
     br.submit()
     
-    return(br)        
+    return(br)
+
+def fetch_matches(match,instance_var,engine_var):           
+    
+    obj = pd.Series.to_frame(pd.Series([match], dtype='str'))
+    obj.columns = ['Match_ID']       
+
+    try:            
+        data = fetch_all_match_details(match,instance_var)
+
+        if len(data) == 1 and data == [2]:
+            obj.to_sql('NONEXISTENT_FAILS',con=engine_var, if_exists="append",index=False)
+
+        elif len(data) == 1 and data == [1]:
+            obj.to_sql('TIMEOUT_FAILS',con=engine_var, if_exists="append",index=False)
+
+        elif len(data) == 1 and data == [3]:
+            obj.to_sql('NONAOE2MATCH_FAILS',con=engine_var, if_exists="append",index=False)
+            
+        else:
+            data.to_sql('RAW_MATCH_DATA',con=engine_var, if_exists="append",index=False)
+    except:
+        obj.to_sql('UNKNOWN_FAILS',con=engine_var, if_exists="append",index=False)    
         
 if __name__ == '__main__':
+    
+    # Create connection instance
+    username, password = credentials()
+    instance = voobly_login(username,password)
     
     # Set up SQL connection
     db_conn,db_cursor,engine = setup_sql_conn()   
@@ -89,15 +86,10 @@ if __name__ == '__main__':
     start_id = fetch_latest_match_id(db_conn)+1
     
     print('Starting download from match id: '+str(start_id)+'\n')
-    
-    start = time.time()
     iterations = list(range(start_id,start_id+collect))
     
     # Parallel processing
     p = mp.Pool(processes=procs)
-    for _ in tqdm.tqdm(p.imap(fetch_matches, iterations),bar_format='{desc:<5.5}{percentage:3.0f}%|{bar:70}{r_bar}', total = collect):
+    for _ in tqdm.tqdm(p.imap(partial(fetch_matches, instance_var = instance, engine_var = engine), iterations),bar_format='{desc:<5.5}{percentage:3.0f}%|{bar:70}{r_bar}', total = collect):
         pass
-    p.close()
-    p.join()
-
     
