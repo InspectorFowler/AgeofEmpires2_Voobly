@@ -1,4 +1,4 @@
-SELECT *
+SELECT TOP 100000 *
 FROM [AOE2_VOOBLY].[dbo].[MATCH_DATA]
 WHERE ladder = 'Ladder: RM - 1v1' AND
 	  Match_map IN (SELECT Match_map
