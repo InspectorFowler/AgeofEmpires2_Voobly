@@ -1,5 +1,5 @@
 query {
-    match(id: 51560) {
+    match(id: $$__$$) {
     id
     map_name
     played
