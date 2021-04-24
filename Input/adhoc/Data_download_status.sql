@@ -7,7 +7,7 @@ from RAW_MATCH_DATA rmd
 
 union
 
-select ladder, 
+select TRIM(ladder), 
 	   count(*) as row_cnt,
 	   count(distinct Match_ID) as match_cnt,
 	   max(STR_TO_DATE(Match_date,'%m/%d/%Y')) as max_date,
