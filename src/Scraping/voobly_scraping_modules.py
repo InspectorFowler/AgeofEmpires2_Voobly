@@ -40,6 +40,7 @@ import random
 import warnings
 import datetime
 from datetime import date, timedelta
+import time
 
 # --------------------------------------------------------------------------------------------------------
 # Proxy Setup
@@ -47,23 +48,29 @@ from datetime import date, timedelta
 
 def fetch_proxies():   
 
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36'}
-    URL = "https://free-proxy-list.net/"
-    req = requests.get(URL, headers = headers) # .json()
-    soup = BeautifulSoup(req.text, "lxml")
+    try:    
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36'}
+        URL = "https://free-proxy-list.net/"
+        req = requests.get(URL, headers = headers) # .json()
+        soup = BeautifulSoup(req.text, "lxml")
 
-    for body in soup("tbody"):
-        body.unwrap()
+        for body in soup("tbody"): body.unwrap()
 
-    df = pd.read_html(str(soup), flavor="bs4")
-    df = pd.DataFrame(df[0])
-    proxies = df[(df.Https == 'yes')] # (df.Https == 'yes') & (df.Country == 'United States')
-    proxies['Port'] = proxies['Port'].astype(int)
-    proxies = proxies[['IP Address','Port']][(proxies['Https']=='yes') & (proxies['Anonymity']=='elite proxy')]
+        df = pd.read_html(str(soup), flavor="bs4")
+        df = pd.DataFrame(df[0])
+        proxies = df[(df.Https == 'yes')] # (df.Https == 'yes') & (df.Country == 'United States')
+        proxies['Port'] = proxies['Port'].astype(int)
+        proxies = proxies[['IP Address','Port']][(proxies['Https']=='yes') & (proxies['Anonymity']=='elite proxy')]
+
+        index = random.randint(0,proxies.shape[0])
+        proxy = str(proxies.iloc[index,]['IP Address'])
+        port = str(proxies.iloc[index,]['Port'])
+        
+    except:
+        proxy = None
+        port = None
     
-    index = random.randint(0,proxies.shape[0])
-    
-    return(str(proxies.iloc[index,]['IP Address']),str(proxies.iloc[index,]['Port']))
+    return(proxy,port)
 
 # --------------------------------------------------------------------------------------------------------
 # Database connection
@@ -98,6 +105,7 @@ def fetch_latest_match_id(db_conn):
 
 # Login into voobly
 def voobly_login(username, password, proxy = None, port = None):
+    
     # Browser
     br = mechanize.Browser()
 
@@ -105,16 +113,17 @@ def voobly_login(username, password, proxy = None, port = None):
     cj = http.cookiejar.LWPCookieJar()
     br.set_cookiejar(cj)
 
-    # Browser options
-    if (not proxy) and (not port):
+    # Set proxy if available
+    if not proxy == None and not port == None: 
         br.set_proxies({"https":proxy+":"+port})
+        
+    # Browser options
     br.set_handle_equiv(True)
     br.set_handle_gzip(True)
     br.set_handle_redirect(True)
     br.set_handle_referer(True)
     br.set_handle_robots(False)
     br.set_handle_refresh(mechanize._http.HTTPRefreshProcessor(), max_time=1)
-
     br.addheaders = [('User-agent', 'Chrome')]
 
     # The site we will navigate into, handling it's session
@@ -400,4 +409,44 @@ def fetch_matches_write(match_id,instance,engine):
         else:
             data.to_sql('RAW_MATCH_DATA',con=engine, if_exists="append",index=False)
     except:
-        obj.to_sql('UNKNOWN_FAILS',con=engine, if_exists="append",index=False)      
+        obj.to_sql('UNKNOWN_FAILS',con=engine, if_exists="append",index=False)
+        
+# --------------------------------------------------------------------------------------------------------
+# fetch match details independently
+# --------------------------------------------------------------------------------------------------------
+
+# fetch match details independently, retry and write to DB
+def fetch_match(match_id):
+    
+    def fetch_try(match_id):
+        
+        # voobly connection
+        instance = voobly_login(os.environ['voobly_username'],os.environ['voobly_password'], proxy = None, port = None)
+
+        # database connection
+        db_conn, engine = setup_sql_conn()
+
+        # fetch & write match
+        fetch_matches_write(match_id,instance,engine)
+        
+        # database disconnect
+        db_conn.close()
+        engine.dispose()
+        
+    max_try = 15    
+    try_count = 0
+    try_flag = True
+    
+    # Try to fetch match details for max 15 iterations else throw error !
+    while try_count < max_try and try_flag:
+        try :
+            fetch_try(match_id)
+            try_flag = False
+        except:
+            if try_count > max_try:
+                raise ValueError('Maximum retries reached, killing process !')
+            else:
+                try_count+=1
+    
+    # return nothing
+    return(None)
