@@ -17,30 +17,21 @@
 # --------------------------------------------------------------------------------------------------------
 
 # DB connectors
-import pyodbc
+import pyodbc, mysql.connector
 from sqlalchemy import create_engine
-import mysql.connector
 
 # Data manupilation
-import os
-import pandas as pd
-import numpy as np
-import re
+import os, pandas as pd, numpy as np, re
 from functools import reduce
 
 # Scraping and web
 from bs4 import BeautifulSoup
-import mechanize
-import http.cookiejar
-import requests
+import mechanize, http.cookiejar, requests
 
 # Utility
 from tqdm import tqdm
-import random
-import warnings
-import datetime
+import random, warnings, datetime, time
 from datetime import date, timedelta
-import time
 
 # --------------------------------------------------------------------------------------------------------
 # Proxy Setup

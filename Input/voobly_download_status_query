@@ -1,19 +1,19 @@
 select 'total' as ladder,
 	   count(distinct match_id) as match_cnt,
 	   count(*) as row_cnt,
-	   max(Match_ID) as max_match_id,
-	   min(Match_date) as min_date,
-	   max(Match_date) as max_date
-from aoe2_voobly.match_data 
+	   max(cast(Match_ID as signed)) as max_match_id,
+	   min(str_to_date(Match_date, '%m/%d%Y')) as min_date,
+	   max(str_to_date(Match_date, '%m/%d%Y')) as max_date
+from aoe2_voobly.raw_match_data 
 
 union
 
 select trim(ladder) as ladder,
 	   count(distinct match_id) as match_cnt,
 	   count(*) as row_cnt,
-	   max(Match_ID) as max_match_id,
-	   min(Match_date) as min_date,
-	   max(Match_date) as max_date
-from aoe2_voobly.match_data 
+	   max(cast(Match_ID as signed)) as max_match_id,
+	   min(str_to_date(Match_date, '%m/%d%Y')) as min_date,
+	   max(str_to_date(Match_date, '%m/%d%Y')) as max_date
+from aoe2_voobly.raw_match_data 
 group by trim(ladder)
 order by 2 desc
