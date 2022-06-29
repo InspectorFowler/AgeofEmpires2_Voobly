@@ -1,4 +1,5 @@
 credentials.ipynb
-
+*.feather
+*.csv
 .ipynb_checkpoints
 __pycache__
